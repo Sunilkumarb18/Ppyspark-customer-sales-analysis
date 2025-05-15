@@ -1,0 +1,88 @@
+1. Which customers increased their spending by at least 50% in the last 3 months compared to the previous 3 months
+
+Query:
+--------
+from pyspark.sql.window import Window
+wn_spec = Window.partitionBy("customer_id").orderBy("sale_date").rowsBetween(-2,0)
+rn = sum("sale_amount").over(wn_spec)
+df_roll = s.withColumn("rolling sum", rn)
+df_roll.display()
+
+
+
+2. Which customers increased their spending by at least 50% in the last 3 months compared to the previous 3 months
+
+Query:
+--------
+from pyspark.sql.window import Window
+wn_spec = Window.partitionBy("customer_id").orderBy("sale_date").rowsBetween(-2,0)
+rn = sum("sale_amount").over(wn_spec)
+df_roll = s.withColumn("rolling sum", rn)
+df_roll.display()
+
+
+
+3. What are the top 5 customers by total spend each month
+
+Query:
+-------
+from pyspark.sql.functions import col,sum, date_format, row_number
+from pyspark.sql.window import Window
+df_mnt = s.withColumn("mnt",date_format("sale_date","MM"))
+m = df_mnt.alias("m")
+df_top5 = c.join(m, on ="customer_id", how="inner").groupBy("first_name","mnt").agg(sum(col("sale_amount")).alias("Tot Amount")).orderBy(col("Tot Amount").desc())
+wn_spec = Window.partitionBy("mnt").orderBy(col("Tot Amount").desc())
+rn = row_number().over(wn_spec)
+df_rnk = df_top5.withColumn("rnk",rn)
+df_rnk.filter(col("rnk")<6).drop("rnk").display()
+
+
+4. Which products have consistently increased in sales over the last 6 months
+
+Query:
+-------
+from pyspark.sql.functions import lag, when,sum
+df_last_6 = p.join(m, on="product_id", how="inner").groupBy("product_name","mnt").agg(sum("sale_amount").alias("Tot Amount"))
+df_m = df_last_6.filter(col("mnt")<7).orderBy("product_name","mnt")
+wn_spec = Window.partitionBy("product_name").orderBy("mnt")
+lg = lag("Tot Amount").over(wn_spec)
+df_lag = df_m.withColumn("lag Diff",when((col("Tot Amount")-lg)>0, 1).otherwise(0))
+df_lag.groupBy("product_name").agg(sum("lag Diff").alias("val")).filter(col("val")==5).display()
+
+
+5. What is the average time between purchases per customer
+
+Query:
+-------
+from pyspark.sql.functions import datediff, avg
+df_avg_time = s.join(c, on="customer_id", how="inner")
+wn_spec = Window.partitionBy("customer_id").orderBy("sale_date")
+lg = lag("sale_date",1).over(wn_spec)
+df_fn = df_avg_time.withColumn("diff", datediff(col("sale_date"),lg))
+df1 = df_fn.select("customer_id","first_name","diff").fillna(0)
+df1.groupBy("customer_id").agg(avg("diff")).display()
+
+6. What is the average order value (AOV) by customer segment or region
+
+Query:
+------
+from pyspark.sql.functions import sum,count
+df_avg_val = s.agg(sum("Sale_amount")/count("sale_id"))
+df_avg_val.display()
+
+7.Year-over-Year Growth by Product Category
+
+Query:
+-------from pyspark.sql.functions import sum,date_format,lag,col,round
+from pyspark.sql.window import Window
+df_mm = s.withColumn("year", date_format("sale_date","yyyy"))
+m = df_mm.alias("m")
+df_yoy = p.join(m, on="product_id", how="inner").groupBy("category","year").agg(sum("sale_amount").alias("Tot Amt")).orderBy("category","year")
+wn_spec = Window.partitionBy("category").orderBy("year")
+rn = lag("Tot Amt", 1).over(wn_spec)
+df_lag = df_yoy.withColumn("prev_tot", rn)
+df_per = df_lag.withColumn("val", round((col("prev_tot")-col("Tot Amt"))/col("Tot Amt")*100,2))
+df_per.fillna(0).display()
+
+
+
