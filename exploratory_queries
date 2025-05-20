@@ -73,7 +73,8 @@ df_avg_val.display()
 7.Year-over-Year Growth by Product Category
 
 Query:
--------from pyspark.sql.functions import sum,date_format,lag,col,round
+-------
+from pyspark.sql.functions import sum,date_format,lag,col,round
 from pyspark.sql.window import Window
 df_mm = s.withColumn("year", date_format("sale_date","yyyy"))
 m = df_mm.alias("m")
@@ -84,5 +85,18 @@ df_lag = df_yoy.withColumn("prev_tot", rn)
 df_per = df_lag.withColumn("val", round((col("prev_tot")-col("Tot Amt"))/col("Tot Amt")*100,2))
 df_per.fillna(0).display()
 
+8.Identify Customers with Increasing Monthly Spend
+
+Query:
+-------
+from pyspark.sql.functions import date_format,sum,lag,when,col
+from pyspark.sql.window import Window
+df_mon = s.withColumn("mnt",date_format("sale_date","MM"))
+s=df_mon.alias("m")
+df_fn = s.join(c,on="customer_id", how="inner").groupBy("first_name","mnt").agg(sum("sale_amount").alias("tot")).orderBy("first_name","mnt")
+wn_spec = Window.partitionBy("first_name").orderBy("mnt")
+rn = lag("tot").over(wn_spec)
+df_fn2 = df_fn.withColumn("val", when(col("tot")-rn>0,1).otherwise(0))
+df_fn2.groupBy("first_name").agg(sum("val").alias("cnt")).filter(col("cnt")==11).display()
 
 
