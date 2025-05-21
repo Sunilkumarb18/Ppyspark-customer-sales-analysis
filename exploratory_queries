@@ -99,4 +99,31 @@ rn = lag("tot").over(wn_spec)
 df_fn2 = df_fn.withColumn("val", when(col("tot")-rn>0,1).otherwise(0))
 df_fn2.groupBy("first_name").agg(sum("val").alias("cnt")).filter(col("cnt")==11).display()
 
+9. Repeat vs One-Time Customers
+
+Query:
+---------
+from pyspark.sql.functions import count,col
+df_one = s.groupBy("customer_id").agg(count("customer_id").alias("One-Time")).filter(col("One-Time")==1)
+df_one.agg(count("customer_id")).display()
+df_repeat = s.groupBy("customer_id").agg(count("customer_id").alias("Repeat")).filter(col("Repeat")==2)
+df_repeat.agg(count("customer_id")).display()
+
+10. Sales Velocity per Product-Calculate average number of sales per day for each product.
+
+Query:
+--------
+from pyspark.sql.functions import count, countDistinct, col
+product_sales = s.groupBy("product_id").agg(
+    count("sale_id").alias("total_sales"),
+    countDistinct("sale_date").alias("active_days")
+)
+product_sales = product_sales.withColumn(
+    "avg_sales_per_day",
+    col("total_sales") / col("active_days")
+)
+
+product_sales.select("product_id", "avg_sales_per_day").display()
+
+
 
